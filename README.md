@@ -1,1 +1,81 @@
-# juptyer-notebooks-report-generator
+# Jupyter Notebooks Report Generator
+
+A tool for generating HTML reports from Jupyter notebooks in python. It converts multiple notebooks into a single HTML report with a tabbed interface, making it easy to organize and present multiple analyses. The tool supports both flat and nested tab structures, allowing for hierarchical organization of notebooks.
+
+## Configuration Examples
+
+### Nested Structure (Categories with Notebooks)
+
+```json
+{
+  "notebook_dir": "",
+  "notebook_files": {
+    "Category 1": [
+      "/path/to/notebook1.ipynb",
+      "/path/to/notebook2.ipynb"
+    ],
+    "Category 2": [
+      "/path/to/notebook3.ipynb",
+      "/path/to/notebook4.ipynb"
+    ]
+  },
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report"
+}
+```
+
+This configuration creates a two-level tab structure with categories as the top level and individual notebooks as the second level.
+
+If there is no subdirs in the root dir given in the notebook_dir attribute, then it creates a flat structure instead
+
+### Flat Structure (Simple List of Notebooks)
+
+```json
+{
+  "notebook_dir": "",
+  "notebook_files": [
+    "/path/to/notebook1.ipynb",
+    "/path/to/notebook2.ipynb",
+    "/path/to/notebook3.ipynb"
+  ],
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report"
+}
+```
+
+This configuration creates a simple tab structure with all notebooks at the same level.
+
+### Using a Directory of Notebooks
+
+```json
+{
+  "notebook_dir": "/path/to/notebooks/directory",
+  "notebook_files": [],
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report"
+}
+```
+
+This configuration will use all `.ipynb` files found in the specified directory.
+
+### Automatic Nested Structure from Directory Tree
+
+```json
+{
+  "notebook_dir": "/path/to/notebooks/directory",
+  "notebook_files": {},
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report"
+}
+```
+
+This configuration automatically creates a nested structure based on the subdirectories in the notebook_dir. Each subdirectory becomes a category, and the notebooks within each subdirectory are grouped under that category. Notebooks in the root directory are placed in a "Main" category.
+
+## Usage
+
+```python
+from tabs_report.tabs_report_generator import generate_tabs_report
+
+# Generate report using a config file
+generate_tabs_report("path/to/config.json")
+```
