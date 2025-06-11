@@ -144,6 +144,13 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             margin-top: 2rem;
             margin-bottom: 2rem;
         }
+
+        /* Prevent image overflow and horizontal scrolling */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
     </style>
     """
 
@@ -198,6 +205,60 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         html_contents.append(
             f'<div class="tab-pane fade {"show active" if i == 0 else ""}" id="tab{i}" role="tabpanel" aria-labelledby="tab{i}-link">{html_content}</div>')
 
+    custom_css = """
+    <style>
+        .nav-pills .nav-link {
+            background-color: #f8f9fa;
+            color: #495057;
+            margin: 0 2px;
+            border-radius: 0.375rem;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .nav-pills .nav-link:hover {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        .nav-pills .nav-link.active:hover {
+            background-color: #0b5ed7;
+            color: white;
+        }
+
+        .tab-content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 20px;
+            margin-top: 10px;
+        }
+
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 2rem;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Prevent image overflow and horizontal scrolling */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+    """
+
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -206,16 +267,17 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <title>{report_title}</title>
+        {custom_css}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
     </head>
 
     <body>
-        <div class="container mt-4">
-            <h1>{report_title}</h1>
-            <h5 class="text-muted">Generated on: {current_datetime}</h5>
-            <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <div class="container">
+            <div class="text-center mb-4">
+                <h1 class="display-4">{report_title}</h1>
+                <p class="text-muted">Generated on: {current_datetime}</p>
+            </div>
+            <ul class="nav nav-tabs nav-justified mb-3" id="myTab" role="tablist">
                 {''.join(html_tabs)}
             </ul>
             <div class="tab-content">
