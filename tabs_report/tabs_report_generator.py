@@ -121,6 +121,7 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             border-radius: 0.375rem;
             padding: 20px;
             margin-top: 10px;
+            overflow-x: auto;
         }
 
         .main-tabs .nav-tabs .nav-link {
@@ -134,6 +135,7 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
 
         body {
             background-color: #f8f9fa;
+            overflow-x: hidden;
         }
 
         .container {
@@ -143,6 +145,33 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             padding: 2rem;
             margin-top: 2rem;
             margin-bottom: 2rem;
+            max-width: 100%;
+        }
+
+        /* Make tables responsive */
+        table {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            display: block !important;
+        }
+
+        /* Make images responsive */
+        img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Make all content fit within viewport */
+        * {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Ensure code blocks don't cause horizontal scrolling */
+        pre, code {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
         }
     </style>
     """
@@ -198,6 +227,61 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         html_contents.append(
             f'<div class="tab-pane fade {"show active" if i == 0 else ""}" id="tab{i}" role="tabpanel" aria-labelledby="tab{i}-link">{html_content}</div>')
 
+    custom_css = """
+    <style>
+        body {
+            background-color: #f8f9fa;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 2rem;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            max-width: 100%;
+        }
+
+        .tab-content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            padding: 20px;
+            margin-top: 0;
+            overflow-x: auto;
+        }
+
+        /* Make tables responsive */
+        table {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            display: block !important;
+        }
+
+        /* Make images responsive */
+        img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Make all content fit within viewport */
+        * {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Ensure code blocks don't cause horizontal scrolling */
+        pre, code {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
+        }
+    </style>
+    """
+
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -206,6 +290,7 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <title>{report_title}</title>
+        {custom_css}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
@@ -342,5 +427,5 @@ def generate_tabs_report(config_path: str):
 
 # Run the script
 if __name__ == "__main__":
-    config_file_path = "config.json"  # Change this if necessary
+    config_file_path = "tabs_report\\config.json"  # Change this if necessary
     generate_tabs_report(config_file_path)
