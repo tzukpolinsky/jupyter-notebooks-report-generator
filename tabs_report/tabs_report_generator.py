@@ -188,6 +188,73 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
     """
 
 
+def _generate_single_html_template(html_file, report_title, current_datetime):
+    """Generate HTML template for a single notebook."""
+    notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
+    notebook_name = notebook_name.replace("_", " ")
+
+    with open(html_file, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    custom_css = """
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 2rem;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 20px;
+            margin-top: 10px;
+        }
+
+        /* Prevent image overflow and horizontal scrolling */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+    """
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <title>{report_title}</title>
+        {custom_css}
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <div class="text-center mb-4">
+                <h1 class="display-4">{report_title}</h1>
+                <p class="text-muted">Generated on: {current_datetime}</p>
+            </div>
+            <div class="content">
+                {html_content}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
 def _generate_flat_html_template(html_files, report_title, current_datetime):
     """Generate HTML template for flat tabs structure."""
     html_tabs = []
@@ -291,10 +358,12 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
 
 # Generate final HTML report - now handles both flat and nested structures
 def generate_final_report(html_files, report_title, output_folder, current_datetime: str):
-    """Enhanced to support both flat list and nested dict structures."""
+    """Enhanced to support both flat list, nested dict structures, and single file."""
 
     if isinstance(html_files, dict):
         template_str = _generate_nested_html_template(html_files, report_title, current_datetime)
+    elif isinstance(html_files, str):
+        template_str = _generate_single_html_template(html_files, report_title, current_datetime)
     else:
         template_str = _generate_flat_html_template(html_files, report_title, current_datetime)
 
@@ -380,9 +449,9 @@ def generate_tabs_report(config_path: str):
 
     print("Converting notebooks to HTML...")
 
-    # Check if notebook_files is a dict (new nested structure) or list (old flat structure)
+    # Check if notebook_files is a dict (nested structure), string (single notebook), or list (flat structure)
     if isinstance(notebook_files, dict):
-        # New nested structure
+        # Nested structure
         html_files_dict = {}
 
         for topic_name, topic_notebooks in notebook_files.items():
@@ -393,10 +462,18 @@ def generate_tabs_report(config_path: str):
         print("Generating nested tabs HTML report...")
         generate_final_report(html_files_dict, report_title, output_folder, current_datetime)
 
+    elif isinstance(notebook_files, str):
+        # Single notebook
+        print(f"Processing single notebook: {notebook_files}")
+        html_files = convert_notebooks_to_html([notebook_files], output_folder, current_datetime)
+        if html_files:
+            print("Generating single notebook HTML report...")
+            generate_final_report(html_files[0], report_title, output_folder, current_datetime)
+
     else:
-        # Old flat structure - maintain backward compatibility
+        # Flat structure - maintain backward compatibility
         html_files = convert_notebooks_to_html(notebook_files, output_folder, current_datetime)
-        print("Generating HTML report...")
+        print("Generating flat tabs HTML report...")
         generate_final_report(html_files, report_title, output_folder, current_datetime)
 
     print("Done!")

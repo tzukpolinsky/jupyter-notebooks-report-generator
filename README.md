@@ -45,6 +45,19 @@ If there is no subdirs in the root dir given in the notebook_dir attribute, then
 
 This configuration creates a simple tab structure with all notebooks at the same level.
 
+### Single Notebook
+
+```json
+{
+  "notebook_dir": "",
+  "notebook_files": "/path/to/notebook.ipynb",
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report"
+}
+```
+
+This configuration creates a simple HTML report with a single notebook, without any tabs. It preserves the same qualities as the nested and flat reports, including title, generation date, and the design that prevents side scrolling.
+
 ### Using a Directory of Notebooks
 
 ```json
