@@ -22,10 +22,6 @@ def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: s
         # Add execute flag if enabled
         if execute:
             nbconvert_cmd.append("--execute")
-            # Add timeout to prevent hanging on problematic cells
-            # nbconvert_cmd.extend(["--ExecutePreprocessor.timeout=600"])
-            # # Allow errors so conversion continues even if execution fails
-            # nbconvert_cmd.extend(["--allow-errors"])
 
         # Add output path and notebook file
         nbconvert_cmd.extend(["--output", html_output_path, notebook_file])
@@ -42,7 +38,7 @@ def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: s
                 # If execution fails, try again without execution
                 if execute:
                     # Remove --execute flag and related options
-                    basic_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic",
+                    basic_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "lab",
                                 "--output", html_output_path, notebook_file]
                     print("Retrying conversion without execution...")
                     subprocess.run(basic_cmd, check=True)
@@ -190,6 +186,8 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.css" type="text/css" />
+
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.4.min.js"></script>
@@ -267,6 +265,8 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.css" type="text/css" />
+
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.4.min.js"></script>
@@ -368,6 +368,8 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.css" type="text/css" />
+
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.4.min.js"></script>
         <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.4.min.js"></script>
