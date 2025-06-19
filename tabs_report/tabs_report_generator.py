@@ -8,7 +8,7 @@ from jinja2 import Template
 from misc.config_loader import load_config
 
 
-def convert_notebooks_to_html(notebook_files: [str], output_folder: str, postfix: str):
+def convert_notebooks_to_html(notebook_files: [], output_folder: str, postfix: str):
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
@@ -433,7 +433,7 @@ def _discover_notebooks_from_directory(notebook_dir: str):
 
     return nested_structure
 # Main function
-def generate_tabs_report(config_path: str):
+def generate_report(config_path: str):
     config = load_config(config_path)
     notebook_files = config.get("notebook_files", [])
     current_datetime = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -482,4 +482,4 @@ def generate_tabs_report(config_path: str):
 # Run the script
 if __name__ == "__main__":
     config_file_path = "config.json"  # Change this if necessary
-    generate_tabs_report(config_file_path)
+    generate_report(config_file_path)

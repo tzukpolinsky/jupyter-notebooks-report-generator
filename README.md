@@ -87,8 +87,8 @@ This configuration automatically creates a nested structure based on the subdire
 ## Usage
 
 ```python
-from tabs_report.tabs_report_generator import generate_tabs_report
+from tabs_report.tabs_report_generator import generate_report
 
 # Generate report using a config file
-generate_tabs_report("path/to/config.json")
+generate_report("path/to/config.json")
 ```
