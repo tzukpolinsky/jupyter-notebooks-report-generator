@@ -1,6 +1,7 @@
 {
-  "notebook_dir": "./notebooks",
-  "notebook_files": [],
-  "output_folder": "",
-  "report_title": "Multi-tab Jupyter Report"
+  "notebook_dir": "",
+  "notebook_files": "/home/tzuk/safeheartFishingLearning/notebooks_for_report/model free/win_stay_lose_switch.ipynb",
+  "output_folder": "/home/tzuk/safeheartFishingLearning/notebooks_for_report/reports",
+  "report_title": "Multi-tab Jupyter Report",
+  "execute": true
 }

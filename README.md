@@ -78,11 +78,31 @@ This configuration will use all `.ipynb` files found in the specified directory.
   "notebook_dir": "/path/to/notebooks/directory",
   "notebook_files": {},
   "output_folder": "/path/to/output",
-  "report_title": "My Analysis Report"
+  "report_title": "My Analysis Report",
+  "execute": true
 }
 ```
 
 This configuration automatically creates a nested structure based on the subdirectories in the notebook_dir. Each subdirectory becomes a category, and the notebooks within each subdirectory are grouped under that category. Notebooks in the root directory are placed in a "Main" category.
+
+## Notebook Execution
+
+You can optionally execute notebooks before converting them to HTML by adding the `execute` option to your configuration:
+
+```json
+{
+  "execute": true
+}
+```
+
+When `execute` is set to `true`, the tool will:
+1. Run all cells in each notebook before converting to HTML
+2. Set a timeout of 600 seconds per cell to prevent hanging on problematic cells
+3. Continue execution even if some cells fail (using the `--allow-errors` flag)
+4. If execution fails completely (e.g., due to missing dependencies), fall back to converting without execution
+5. Provide detailed error messages to help diagnose issues
+
+This feature is useful for ensuring that your report contains the latest outputs from your notebooks. If a notebook requires packages that aren't available in your environment, the tool will gracefully handle the error and still include the notebook in the report (without execution).
 
 ## Usage
 

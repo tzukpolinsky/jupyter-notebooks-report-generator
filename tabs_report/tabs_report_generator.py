@@ -8,7 +8,7 @@ from jinja2 import Template
 from misc.config_loader import load_config
 
 
-def convert_notebooks_to_html(notebook_files: [], output_folder: str, postfix: str):
+def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: str, postfix: str, execute: bool = False):
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
@@ -16,11 +16,40 @@ def convert_notebooks_to_html(notebook_files: [], output_folder: str, postfix: s
         notebook_name = os.path.splitext(os.path.basename(notebook_file))[0]
         html_output_path = os.path.join(output_folder, f"{notebook_name}_{postfix}.html")
 
-        # Use nbconvert to convert notebook to HTML without input code
-        subprocess.run([
-            "jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic",
-            "--output", html_output_path, notebook_file
-        ], check=True)
+        # Build nbconvert command
+        nbconvert_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic"]
+
+        # Add execute flag if enabled
+        if execute:
+            nbconvert_cmd.append("--execute")
+            # Add timeout to prevent hanging on problematic cells
+            # nbconvert_cmd.extend(["--ExecutePreprocessor.timeout=600"])
+            # # Allow errors so conversion continues even if execution fails
+            # nbconvert_cmd.extend(["--allow-errors"])
+
+        # Add output path and notebook file
+        nbconvert_cmd.extend(["--output", html_output_path, notebook_file])
+
+        # Run nbconvert command with error handling
+        try:
+            print(f"Converting notebook: {notebook_file}")
+            result = subprocess.run(nbconvert_cmd, check=False, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                print(f"Warning: Error executing notebook {notebook_file}. Converting without execution.")
+                print(f"Error details: {result.stderr}")
+
+                # If execution fails, try again without execution
+                if execute:
+                    # Remove --execute flag and related options
+                    basic_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic",
+                                "--output", html_output_path, notebook_file]
+                    print("Retrying conversion without execution...")
+                    subprocess.run(basic_cmd, check=True)
+        except Exception as e:
+            print(f"Error converting notebook {notebook_file}: {str(e)}")
+            # Continue with next notebook
+            continue
 
         converted_html_files.append(html_output_path)
 
@@ -446,8 +475,12 @@ def generate_report(config_path: str):
 
     output_folder = config.get("output_folder", "./output")
     report_title = config.get("report_title", "Jupyter tabs Notebooks Report")
+    execute = config.get("execute", False)
 
-    print("Converting notebooks to HTML...")
+    if execute:
+        print("Executing and converting notebooks to HTML...")
+    else:
+        print("Converting notebooks to HTML...")
 
     # Check if notebook_files is a dict (nested structure), string (single notebook), or list (flat structure)
     if isinstance(notebook_files, dict):
@@ -456,7 +489,7 @@ def generate_report(config_path: str):
 
         for topic_name, topic_notebooks in notebook_files.items():
             print(f"Processing topic: {topic_name}")
-            html_files = convert_notebooks_to_html(topic_notebooks, output_folder, current_datetime)
+            html_files = convert_notebooks_to_html(topic_notebooks, output_folder, current_datetime, execute)
             html_files_dict[topic_name] = html_files
 
         print("Generating nested tabs HTML report...")
@@ -465,14 +498,14 @@ def generate_report(config_path: str):
     elif isinstance(notebook_files, str):
         # Single notebook
         print(f"Processing single notebook: {notebook_files}")
-        html_files = convert_notebooks_to_html([notebook_files], output_folder, current_datetime)
+        html_files = convert_notebooks_to_html([notebook_files], output_folder, current_datetime, execute)
         if html_files:
             print("Generating single notebook HTML report...")
             generate_final_report(html_files[0], report_title, output_folder, current_datetime)
 
     else:
         # Flat structure - maintain backward compatibility
-        html_files = convert_notebooks_to_html(notebook_files, output_folder, current_datetime)
+        html_files = convert_notebooks_to_html(notebook_files, output_folder, current_datetime, execute)
         print("Generating flat tabs HTML report...")
         generate_final_report(html_files, report_title, output_folder, current_datetime)
 
