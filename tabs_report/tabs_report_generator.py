@@ -55,7 +55,7 @@ def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_fol
 
 
 def _generate_nested_html_template(html_files, report_title, current_datetime):
-    """Generate HTML template for nested tabs structure."""
+    """Generate HTML template for nested tabs structure - Lab template compatible."""
     main_tabs = []
     main_contents = []
 
@@ -92,11 +92,11 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
                 f'{notebook_name}</a></li>'
             )
 
-            # Sub-tab content
+            # Sub-tab content - wrap in isolation container
             sub_contents.append(
                 f'<div class="tab-pane fade {"show active" if is_sub_active else ""}" '
                 f'id="{sub_tab_id}" role="tabpanel" aria-labelledby="{sub_tab_id}-tab">'
-                f'{html_content}</div>'
+                f'<div class="notebook-content-wrapper">{html_content}</div></div>'
             )
 
         # Create main tab content with nested tabs
@@ -114,69 +114,170 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         '''
         main_contents.append(main_content)
 
+    # Enhanced CSS to handle lab template conflicts
     custom_css = """
     <style>
-        .nested-tabs-container {
-            margin-top: 20px;
+        /* Override JupyterLab CSS conflicts */
+        .notebook-content-wrapper {
+            all: initial;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #24292f;
+        }
+
+        .notebook-content-wrapper * {
+            box-sizing: border-box;
+        }
+
+        /* Reset conflicting JupyterLab styles */
+        .notebook-content-wrapper .jp-Cell,
+        .notebook-content-wrapper .jp-CodeCell,
+        .notebook-content-wrapper .jp-MarkdownCell {
+            margin: 0 !important;
+            padding: 10px !important;
+            border: none !important;
+        }
+
+        /* Fix JupyterLab output styling conflicts */
+        .notebook-content-wrapper .jp-OutputArea {
+            margin: 10px 0 !important;
+        }
+
+        .notebook-content-wrapper .jp-OutputArea-output {
+            background: transparent !important;
+        }
+
+        /* Ensure Bootstrap tabs work despite JupyterLab CSS */
+        .nav-tabs .nav-link {
+            background-color: #f8f9fa !important;
+            color: #495057 !important;
+            border: 1px solid #dee2e6 !important;
+            font-weight: 500 !important;
+            font-size: 1.1em !important;
+            z-index: 1000 !important;
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: #fff !important;
+            color: #0d6efd !important;
+            border-bottom-color: transparent !important;
+            z-index: 1001 !important;
+        }
+
+        .nav-tabs .nav-link:hover {
+            background-color: #e9ecef !important;
+            border-color: #dee2e6 !important;
         }
 
         .nav-pills .nav-link {
-            background-color: #f8f9fa;
-            color: #495057;
-            margin: 0 2px;
-            border-radius: 0.375rem;
+            background-color: #f8f9fa !important;
+            color: #495057 !important;
+            margin: 0 2px !important;
+            border-radius: 0.375rem !important;
+            z-index: 1000 !important;
         }
 
         .nav-pills .nav-link.active {
-            background-color: #0d6efd;
-            color: white;
+            background-color: #0d6efd !important;
+            color: white !important;
+            z-index: 1001 !important;
         }
 
         .nav-pills .nav-link:hover {
-            background-color: #e9ecef;
-            color: #495057;
+            background-color: #e9ecef !important;
+            color: #495057 !important;
         }
 
         .nav-pills .nav-link.active:hover {
-            background-color: #0b5ed7;
-            color: white;
+            background-color: #0b5ed7 !important;
+            color: white !important;
         }
 
+        /* Tab content styling that overrides JupyterLab */
         .tab-content {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 0.375rem;
-            padding: 20px;
-            margin-top: 10px;
+            background-color: white !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 0.375rem !important;
+            padding: 20px !important;
+            margin-top: 10px !important;
+            overflow-x: auto !important;
+            position: relative !important;
+            z-index: 999 !important;
+        }
+
+        .nested-tabs-container {
+            margin-top: 20px !important;
         }
 
         .main-tabs .nav-tabs .nav-link {
-            font-weight: 500;
-            font-size: 1.1em;
+            font-weight: 500 !important;
+            font-size: 1.1em !important;
         }
 
         .nested-tabs-container .nav-pills .nav-link {
-            font-size: 0.95em;
+            font-size: 0.95em !important;
         }
 
+        /* Container and body overrides */
         body {
-            background-color: #f8f9fa;
+            background-color: #f8f9fa !important;
+            overflow-x: hidden !important;
         }
 
         .container {
-            background-color: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            padding: 2rem;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
+            background-color: white !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+            padding: 2rem !important;
+            margin-top: 2rem !important;
+            margin-bottom: 2rem !important;
+            max-width: 100% !important;
+            position: relative !important;
+            z-index: 1 !important;
         }
 
-        /* Prevent image overflow and horizontal scrolling */
-        img {
-            max-width: 100%;
-            height: auto;
-            display: block;
+        /* Responsive content overrides */
+        .notebook-content-wrapper table {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            display: block !important;
+        }
+
+        .notebook-content-wrapper img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        .notebook-content-wrapper * {
+            max-width: 100% !important;
+        }
+
+        .notebook-content-wrapper pre,
+        .notebook-content-wrapper code {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
+        }
+
+        /* Force Bootstrap tab functionality */
+        .tab-pane {
+            display: none !important;
+        }
+
+        .tab-pane.active {
+            display: block !important;
+        }
+
+        .tab-pane.fade {
+            transition: opacity 0.15s linear !important;
+        }
+
+        .tab-pane.fade:not(.show) {
+            opacity: 0 !important;
+        }
+
+        .tab-pane.fade.show {
+            opacity: 1 !important;
         }
     </style>
     """
@@ -210,10 +311,23 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Force Bootstrap tab initialization -->
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            // Force reinitialize all tabs
+            var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+            tabs.forEach(function(tab) {{
+                new bootstrap.Tab(tab);
+            }});
+
+            // Add debugging
+            console.log('Bootstrap tabs initialized for lab template');
+        }});
+        </script>
     </body>
     </html>
     """
-
 
 def _generate_single_html_template(html_file, report_title, current_datetime):
     """Generate HTML template for a single notebook."""
@@ -283,7 +397,7 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
 
 
 def _generate_flat_html_template(html_files, report_title, current_datetime):
-    """Generate HTML template for flat tabs structure."""
+    """Generate HTML template for flat tabs structure - Lab template compatible."""
     html_tabs = []
     html_contents = []
 
@@ -293,62 +407,123 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         with open(html_file, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        # Add HTML content to tab
+        # Add HTML content to tab with isolation wrapper
         html_tabs.append(
             f'<li class="nav-item"><a class="nav-link {"active" if i == 0 else ""}" id="tab{i}-link" data-bs-toggle="tab" href="#tab{i}" role="tab" aria-controls="tab{i}" aria-selected="{"true" if i == 0 else "false"}">{notebook_name}</a></li>')
         html_contents.append(
-            f'<div class="tab-pane fade {"show active" if i == 0 else ""}" id="tab{i}" role="tabpanel" aria-labelledby="tab{i}-link">{html_content}</div>')
+            f'<div class="tab-pane fade {"show active" if i == 0 else ""}" id="tab{i}" role="tabpanel" aria-labelledby="tab{i}-link"><div class="notebook-content-wrapper">{html_content}</div></div>')
 
+    # Enhanced CSS for lab template compatibility
     custom_css = """
     <style>
-        .nav-pills .nav-link {
-            background-color: #f8f9fa;
-            color: #495057;
-            margin: 0 2px;
-            border-radius: 0.375rem;
+        /* Override JupyterLab CSS conflicts */
+        .notebook-content-wrapper {
+            all: initial;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #24292f;
         }
 
-        .nav-pills .nav-link.active {
-            background-color: #0d6efd;
-            color: white;
+        .notebook-content-wrapper * {
+            box-sizing: border-box;
         }
 
-        .nav-pills .nav-link:hover {
-            background-color: #e9ecef;
-            color: #495057;
+        /* Reset conflicting JupyterLab styles */
+        .notebook-content-wrapper .jp-Cell,
+        .notebook-content-wrapper .jp-CodeCell,
+        .notebook-content-wrapper .jp-MarkdownCell {
+            margin: 0 !important;
+            padding: 10px !important;
+            border: none !important;
         }
 
-        .nav-pills .nav-link.active:hover {
-            background-color: #0b5ed7;
-            color: white;
+        /* Ensure Bootstrap tabs work */
+        .nav-tabs .nav-link {
+            background-color: #f8f9fa !important;
+            color: #495057 !important;
+            border: 1px solid #dee2e6 !important;
+            z-index: 1000 !important;
         }
 
-        .tab-content {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 0.375rem;
-            padding: 20px;
-            margin-top: 10px;
+        .nav-tabs .nav-link.active {
+            background-color: #fff !important;
+            color: #0d6efd !important;
+            border-bottom-color: transparent !important;
+            z-index: 1001 !important;
+        }
+
+        .nav-tabs .nav-link:hover {
+            background-color: #e9ecef !important;
+            border-color: #dee2e6 !important;
         }
 
         body {
-            background-color: #f8f9fa;
+            background-color: #f8f9fa !important;
+            overflow-x: hidden !important;
         }
 
         .container {
-            background-color: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            padding: 2rem;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
+            background-color: white !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+            padding: 2rem !important;
+            margin-top: 2rem !important;
+            margin-bottom: 2rem !important;
+            max-width: 100% !important;
         }
 
-        /* Prevent image overflow and horizontal scrolling */
-        img {
-            max-width: 100%;
-            height: auto;
-            display: block;
+        .tab-content {
+            background-color: white !important;
+            border: 1px solid #dee2e6 !important;
+            border-top: none !important;
+            border-radius: 0 0 0.375rem 0.375rem !important;
+            padding: 20px !important;
+            margin-top: 0 !important;
+            overflow-x: auto !important;
+        }
+
+        /* Force Bootstrap tab functionality */
+        .tab-pane {
+            display: none !important;
+        }
+
+        .tab-pane.active {
+            display: block !important;
+        }
+
+        .tab-pane.fade {
+            transition: opacity 0.15s linear !important;
+        }
+
+        .tab-pane.fade:not(.show) {
+            opacity: 0 !important;
+        }
+
+        .tab-pane.fade.show {
+            opacity: 1 !important;
+        }
+
+        /* Responsive content */
+        .notebook-content-wrapper table {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            display: block !important;
+        }
+
+        .notebook-content-wrapper img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        .notebook-content-wrapper * {
+            max-width: 100% !important;
+        }
+
+        .notebook-content-wrapper pre,
+        .notebook-content-wrapper code {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
         }
     </style>
     """
@@ -362,7 +537,6 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <title>{report_title}</title>
         {custom_css}
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
@@ -378,10 +552,24 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
                 {''.join(html_contents)}
             </div>
         </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Force Bootstrap tab initialization -->
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            // Force reinitialize all tabs
+            var tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+            tabs.forEach(function(tab) {{
+                new bootstrap.Tab(tab);
+            }});
+
+            console.log('Bootstrap tabs initialized for lab template');
+        }});
+        </script>
     </body>
     </html>
     """
-
 
 # Generate final HTML report - now handles both flat and nested structures
 def generate_final_report(html_files, report_title, output_folder, current_datetime: str):
@@ -512,5 +700,5 @@ def generate_report(config_path: str):
 
 # Run the script
 if __name__ == "__main__":
-    config_file_path = "config.json"  # Change this if necessary
+    config_file_path = "tabs_report\\config.json"  # Change this if necessary
     generate_report(config_file_path)
