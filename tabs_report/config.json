@@ -1,6 +1,7 @@
 {
-  "notebook_dir": "./notebooks",
-  "notebook_files": [],
-  "output_folder": "",
-  "report_title": "Multi-tab Jupyter Report"
+  "notebook_dir": "/path/to/notebooks/directory",
+  "notebook_files": {},
+  "output_folder": "/path/to/output",
+  "report_title": "My Analysis Report",
+  "execute": true
 }
