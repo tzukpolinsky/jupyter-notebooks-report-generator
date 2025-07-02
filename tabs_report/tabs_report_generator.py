@@ -1,5 +1,7 @@
 import os
 import glob
+from typing import Union
+
 import nbformat
 import subprocess
 from datetime import datetime
@@ -8,7 +10,7 @@ from jinja2 import Template
 from misc.config_loader import load_config
 
 
-def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: str, postfix: str, execute: bool = False):
+def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_folder: str, postfix: str, execute: bool = False):
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
