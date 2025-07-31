@@ -6,32 +6,9 @@ from datetime import datetime
 from jinja2 import Template
 
 from misc.config_loader import load_config
-import importlib.metadata
 
 
-def _get_user_bokeh_version():
-    """Extract Bokeh version from user's environment"""
-    try:
-        return importlib.metadata.version('bokeh')
-    except importlib.metadata.PackageNotFoundError:
-        # Fallback if bokeh not installed
-        # print("Warning: Bokeh not found in environment, using default version 3.3.4")
-        return "3.3.4"
-
-
-def _get_bokeh_resources():
-    """Generate Bokeh CSS/JS resources using user's installed version"""
-    version = _get_user_bokeh_version()
-    # print(f"Using Bokeh version: {version}")
-
-    return f"""
-    <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-{version}.min.css" type="text/css" />
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-{version}.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-{version}.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-{version}.min.js"></script>
-    """
-
-def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: str, postfix: str, execute: bool = False):
+def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_folder: str, postfix: str, execute: bool = False):
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
@@ -40,7 +17,7 @@ def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: s
         html_output_path = os.path.join(output_folder, f"{notebook_name}_{postfix}.html")
 
         # Build nbconvert command
-        nbconvert_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "lab"]
+        nbconvert_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic"]
 
         # Add execute flag if enabled
         if execute:
@@ -61,7 +38,7 @@ def convert_notebooks_to_html(notebook_files: list[str] | dict, output_folder: s
                 # If execution fails, try again without execution
                 if execute:
                     # Remove --execute flag and related options
-                    basic_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "lab",
+                    basic_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic",
                                 "--output", html_output_path, notebook_file]
                     print("Retrying conversion without execution...")
                     subprocess.run(basic_cmd, check=True)
@@ -79,7 +56,7 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
     """Generate HTML template for nested tabs structure."""
     main_tabs = []
     main_contents = []
-    bokeh_resources = _get_bokeh_resources()
+
     for i, (topic_name, topic_html_files) in enumerate(html_files.items()):
         topic_id = f"topic{i}"
         is_active = i == 0
@@ -209,7 +186,11 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        {bokeh_resources}
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.css" type="text/css" />
+
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.0.min.js"></script>
         <title>{report_title}</title>
         {custom_css}
     </head>
@@ -241,7 +222,7 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
     """Generate HTML template for a single notebook."""
     notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
     notebook_name = notebook_name.replace("_", " ")
-    bokeh_resources = _get_bokeh_resources()
+
     with open(html_file, 'r', encoding='utf-8') as f:
         html_content = f.read()
 
@@ -284,7 +265,11 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        {bokeh_resources}
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.css" type="text/css" />
+
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.0.min.js"></script>
         <title>{report_title}</title>
         {custom_css}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -309,7 +294,7 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
     """Generate HTML template for flat tabs structure."""
     html_tabs = []
     html_contents = []
-    bokeh_resources = _get_bokeh_resources()
+
     for i, html_file in enumerate(html_files):
         notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
         notebook_name = notebook_name.replace("_", " ")
@@ -383,7 +368,11 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        {bokeh_resources}
+        <link rel="stylesheet" href="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.css" type="text/css" />
+
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.0.min.js"></script>
+        <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.0.min.js"></script>
         <title>{report_title}</title>
         {custom_css}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
