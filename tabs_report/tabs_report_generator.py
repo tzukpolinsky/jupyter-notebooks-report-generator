@@ -1,5 +1,7 @@
 import os
 import glob
+from typing import Union
+
 import nbformat
 import subprocess
 from datetime import datetime
