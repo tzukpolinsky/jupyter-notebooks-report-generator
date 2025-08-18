@@ -141,7 +141,11 @@ def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_fol
             # Continue with next notebook
             continue
 
-        converted_html_files.append(html_output_path)
+        # Return dict with both output_name (file path) and notebook_name (display name)
+        converted_html_files.append({
+            'output_name': html_output_path,
+            'notebook_name': notebook_name
+        })
 
     return converted_html_files
 
@@ -167,9 +171,10 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         sub_tabs = []
         sub_contents = []
 
-        for j, html_file in enumerate(topic_html_files):
-            notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
-            notebook_name = notebook_name.replace("_", " ")
+        for j, html_file_info in enumerate(topic_html_files):
+            # html_file_info is now a dict with 'output_name' and 'notebook_name'
+            html_file = html_file_info['output_name']
+            notebook_name = html_file_info['notebook_name']
             sub_tab_id = f"{topic_id}_sub{j}"
             is_sub_active = j == 0
 
@@ -342,8 +347,10 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
     """
 
 
-def _generate_single_html_template(html_file, report_title, current_datetime):
+def _generate_single_html_template(html_file_info, report_title, current_datetime):
     """Generate HTML template for a single notebook."""
+    # html_file_info is now a dict with 'output_name' and 'notebook_name'
+    html_file = html_file_info['output_name']
     with open(html_file, 'r', encoding='utf-8') as f:
         html_content = _apply_rtl_processing(f.read())
 
@@ -446,9 +453,10 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
     html_tabs = []
     html_contents = []
 
-    for i, html_file in enumerate(html_files):
-        notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
-        notebook_name = notebook_name.replace("_", " ")
+    for i, html_file_info in enumerate(html_files):
+        # html_file_info is now a dict with 'output_name' and 'notebook_name'
+        html_file = html_file_info['output_name']
+        notebook_name = html_file_info['notebook_name']
         with open(html_file, 'r', encoding='utf-8') as f:
             html_content = _apply_rtl_processing(f.read())
 
@@ -581,11 +589,14 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
 def generate_final_report(html_files, report_title, output_folder, current_datetime: str):
     """Enhanced to support both flat list, nested dict structures, and single file."""
 
-    if isinstance(html_files, dict):
+    if isinstance(html_files, dict) and not ('output_name' in html_files and 'notebook_name' in html_files):
+        # This is a nested structure (dict of topics -> lists of html files)
         template_str = _generate_nested_html_template(html_files, report_title, current_datetime)
-    elif isinstance(html_files, str):
+    elif isinstance(html_files, dict) and 'output_name' in html_files and 'notebook_name' in html_files:
+        # This is a single notebook dict
         template_str = _generate_single_html_template(html_files, report_title, current_datetime)
     else:
+        # This is a flat list of notebook dicts
         template_str = _generate_flat_html_template(html_files, report_title, current_datetime)
 
     # Write final report
@@ -706,5 +717,5 @@ def generate_report(config_path: str):
 
 # Run the script
 if __name__ == "__main__":
-    config_file_path = os.path.join(os.getcwd(),os.path.join('tabs_report',"config.json"))  # Change this if necessary
+    config_file_path = os.path.join(os.getcwd(),os.path.join('test_configs',"auto_nested_config.json"))  # Change this if necessary
     generate_report(config_file_path)
