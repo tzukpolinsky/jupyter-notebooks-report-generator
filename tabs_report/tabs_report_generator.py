@@ -53,7 +53,8 @@ def _apply_rtl_processing(html_content: str) -> str:
             return text
         
         # Split text into RTL and non-RTL segments
-        rtl_pattern = r'([\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF][^\n<]*)'
+        # Match sequences that contain RTL characters, but only capture RTL parts
+        rtl_pattern = r'([\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+(?:\s*[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+)*)'
         
         def replace_rtl_segment(match):
             rtl_text = match.group(1)
@@ -90,6 +91,8 @@ def _apply_rtl_processing(html_content: str) -> str:
         # Table cells
         (r'(<td[^>]*>)(.*?)(</td>)', process_element_content),
         (r'(<th[^>]*>)(.*?)(</th>)', process_element_content),
+        # Pre-formatted text (common in Jupyter notebook outputs)
+        (r'(<pre[^>]*>)(.*?)(</pre>)', process_element_content),
         # Generic divs (but skip structural ones)
         (r'(<div[^>]*class="text_cell_render[^"]*"[^>]*>)(.*?)(</div>)', process_element_content),
     ]
@@ -284,7 +287,8 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         .rtl-text-content {
             direction: rtl !important;
             text-align: right !important;
-            margin: 0.5em 0 !important;
+            display: inline !important;
+            margin: 0 !important;
             padding: 0 !important;
             font-size: inherit !important;
             font-weight: inherit !important;
@@ -389,7 +393,8 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
         .rtl-text-content {
             direction: rtl !important;
             text-align: right !important;
-            margin: 0.5em 0 !important;
+            display: inline !important;
+            margin: 0 !important;
             padding: 0 !important;
             font-size: inherit !important;
             font-weight: inherit !important;
@@ -520,7 +525,8 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
         .rtl-text-content {
             direction: rtl !important;
             text-align: right !important;
-            margin: 0.5em 0 !important;
+            display: inline !important;
+            margin: 0 !important;
             padding: 0 !important;
             font-size: inherit !important;
             font-weight: inherit !important;
