@@ -97,7 +97,7 @@ def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_fol
 
     for notebook_file in notebook_files:
         # Create unique name that includes directory path to avoid collisions
-        notebook_name = os.path.splitext(os.path.basename(notebook_file))[0].replace("_", " ").capitalized()
+        notebook_name = os.path.splitext(os.path.basename(notebook_file))[0].replace("_", " ").capitalize()
         notebook_dir = os.path.dirname(notebook_file)
         
         # Create a unique identifier by including parent directory names
