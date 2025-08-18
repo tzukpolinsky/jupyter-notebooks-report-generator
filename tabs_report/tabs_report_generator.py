@@ -11,19 +11,6 @@ from jinja2 import Template
 from misc.config_loader import load_config
 
 
-def _extract_display_name(html_file_path: str, current_datetime: str) -> str:
-    """Extract clean display name from HTML file path."""
-    full_name = os.path.splitext(os.path.basename(html_file_path))[0].split(current_datetime)[0]
-    # Extract just the notebook name (after the last underscore which separates dir from name)
-    if '_' in full_name and not full_name.startswith('_'):
-        # Find the original notebook name by taking everything after the directory part
-        parts = full_name.split('_')
-        # The notebook name is likely the last meaningful part
-        notebook_name = '_'.join(parts[-2:]) if len(parts) > 1 else full_name
-    else:
-        notebook_name = full_name
-    return notebook_name.replace("_", " ")
-
 
 def _has_rtl_content(text: str) -> bool:
     """Check if text contains any Hebrew or Arabic characters."""
@@ -181,7 +168,8 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         sub_contents = []
 
         for j, html_file in enumerate(topic_html_files):
-            notebook_name = _extract_display_name(html_file, current_datetime)
+            notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
+            notebook_name = notebook_name.replace("_", " ")
             sub_tab_id = f"{topic_id}_sub{j}"
             is_sub_active = j == 0
 
@@ -459,7 +447,8 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
     html_contents = []
 
     for i, html_file in enumerate(html_files):
-        notebook_name = _extract_display_name(html_file, current_datetime)
+        notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
+        notebook_name = notebook_name.replace("_", " ")
         with open(html_file, 'r', encoding='utf-8') as f:
             html_content = _apply_rtl_processing(f.read())
 
