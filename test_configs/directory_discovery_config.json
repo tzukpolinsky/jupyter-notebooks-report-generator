@@ -1,0 +1,7 @@
+{
+  "notebook_dir": "test_notebooks",
+  "notebook_files": [],
+  "output_folder": "./test_output/directory",
+  "report_title": "Directory Discovery Report",
+  "execute": false
+}

@@ -1,0 +1,7 @@
+{
+  "notebook_dir": "test_notebooks",
+  "notebook_files": {},
+  "output_folder": "./test_output/auto_nested",
+  "report_title": "Auto Nested Structure Report",
+  "execute": false
+}

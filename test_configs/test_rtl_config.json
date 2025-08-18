@@ -1,0 +1,6 @@
+{
+    "notebook_files": ["test_notebooks/hebrew_arabic_test.ipynb"],
+    "output_folder": "./test_output/rtl_test",
+    "report_title": "RTL Test Report",
+    "execute": false
+}

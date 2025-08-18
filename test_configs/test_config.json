@@ -1,0 +1,6 @@
+{
+    "notebook_dir": "test_notebooks",
+    "output_folder": "./test_output",
+    "report_title": "Test Report for Duplicate Names",
+    "execute": false
+}

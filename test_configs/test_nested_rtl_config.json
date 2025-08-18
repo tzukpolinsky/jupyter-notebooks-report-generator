@@ -1,0 +1,22 @@
+{
+    "notebook_files": {
+        "Language Tests": [
+            "test_notebooks/hebrew_arabic_test.ipynb"
+        ],
+        "Data Analysis": [
+            "test_notebooks/data_analysis/sales_analysis.ipynb"
+        ],
+        "Machine Learning": [
+            "test_notebooks/machine_learning/model_performance.ipynb"
+        ],
+        "Statistics": [
+            "test_notebooks/statistics_report.ipynb"
+        ],
+        "Visualization": [
+            "test_notebooks/visualization/dashboard.ipynb"
+        ]
+    },
+    "output_folder": "./test_output/nested_rtl_test",
+    "report_title": "Nested RTL Test Report",
+    "execute": false
+}

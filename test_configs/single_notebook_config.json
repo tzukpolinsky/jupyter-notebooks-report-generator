@@ -1,0 +1,6 @@
+{
+  "notebook_files": "test_notebooks/visualization/dashboard.ipynb",
+  "output_folder": "./test_output/single",
+  "report_title": "Single Notebook Report",
+  "execute": false
+}

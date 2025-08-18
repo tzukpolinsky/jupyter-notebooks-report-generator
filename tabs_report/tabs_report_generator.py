@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 from typing import Union
 
 import nbformat
@@ -10,13 +11,81 @@ from jinja2 import Template
 from misc.config_loader import load_config
 
 
+def _extract_display_name(html_file_path: str, current_datetime: str) -> str:
+    """Extract clean display name from HTML file path."""
+    full_name = os.path.splitext(os.path.basename(html_file_path))[0].split(current_datetime)[0]
+    # Extract just the notebook name (after the last underscore which separates dir from name)
+    if '_' in full_name and not full_name.startswith('_'):
+        # Find the original notebook name by taking everything after the directory part
+        parts = full_name.split('_')
+        # The notebook name is likely the last meaningful part
+        notebook_name = '_'.join(parts[-2:]) if len(parts) > 1 else full_name
+    else:
+        notebook_name = full_name
+    return notebook_name.replace("_", " ")
+
+
+def _has_rtl_content(text: str) -> bool:
+    """Check if text contains any Hebrew or Arabic characters."""
+    # Hebrew Unicode range: \u0590-\u05FF
+    # Arabic Unicode range: \u0600-\u06FF, \u0750-\u077F, \u08A0-\u08FF
+    rtl_pattern = r'[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]'
+    return bool(re.search(rtl_pattern, text))
+
+
+def _apply_rtl_processing(html_content: str) -> str:
+    """
+    Apply RTL processing to HTML content by adding dir='rtl' to elements containing RTL text.
+    """
+    # Only apply RTL processing if the content actually contains RTL characters
+    if not _has_rtl_content(html_content):
+        return html_content
+    
+    # Target common Jupyter notebook content containers and add RTL direction
+    patterns_to_rtl = [
+        # Main cell containers
+        (r'<div class="cell border-box-sizing text_cell rendered"([^>]*)>', r'<div class="cell border-box-sizing text_cell rendered"\1 dir="rtl">'),
+        (r'<div class="cell border-box-sizing code_cell rendered"([^>]*)>', r'<div class="cell border-box-sizing code_cell rendered"\1 dir="rtl">'),
+        (r'<div class="inner_cell"([^>]*)>', r'<div class="inner_cell"\1 dir="rtl">'),
+        (r'<div class="text_cell_render border-box-sizing rendered_html"([^>]*)>', r'<div class="text_cell_render border-box-sizing rendered_html"\1 dir="rtl">'),
+        
+        # Text elements - only if they don't already have dir attribute
+        (r'<p(?![^>]*dir=)([^>]*)>', r'<p\1 dir="rtl">'),
+        (r'<h1(?![^>]*dir=)([^>]*)>', r'<h1\1 dir="rtl">'),
+        (r'<h2(?![^>]*dir=)([^>]*)>', r'<h2\1 dir="rtl">'),
+        (r'<h3(?![^>]*dir=)([^>]*)>', r'<h3\1 dir="rtl">'),
+        (r'<h4(?![^>]*dir=)([^>]*)>', r'<h4\1 dir="rtl">'),
+        (r'<h5(?![^>]*dir=)([^>]*)>', r'<h5\1 dir="rtl">'),
+        (r'<h6(?![^>]*dir=)([^>]*)>', r'<h6\1 dir="rtl">'),
+        (r'<li(?![^>]*dir=)([^>]*)>', r'<li\1 dir="rtl">'),
+        (r'<td(?![^>]*dir=)([^>]*)>', r'<td\1 dir="rtl">'),
+        (r'<th(?![^>]*dir=)([^>]*)>', r'<th\1 dir="rtl">'),
+    ]
+    
+    for pattern, replacement in patterns_to_rtl:
+        html_content = re.sub(pattern, replacement, html_content)
+    
+    return html_content
+
+
 def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_folder: str, postfix: str, execute: bool = False):
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
     for notebook_file in notebook_files:
+        # Create unique name that includes directory path to avoid collisions
         notebook_name = os.path.splitext(os.path.basename(notebook_file))[0]
-        html_output_path = os.path.join(output_folder, f"{notebook_name}_{postfix}.html")
+        notebook_dir = os.path.dirname(notebook_file)
+        
+        # Create a unique identifier by including parent directory names
+        if notebook_dir and notebook_dir != '.':
+            # Replace path separators with underscores to create valid filename
+            dir_part = notebook_dir.replace(os.path.sep, '_').replace('/', '_').replace('\\', '_')
+            unique_name = f"{dir_part}_{notebook_name}"
+        else:
+            unique_name = notebook_name
+            
+        html_output_path = os.path.abspath(os.path.join(output_folder, f"{unique_name}_{postfix}.html"))
 
         # Build nbconvert command
         nbconvert_cmd = ["jupyter", "nbconvert", "--to", "html", "--no-input", "--template", "basic"]
@@ -76,13 +145,12 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         sub_contents = []
 
         for j, html_file in enumerate(topic_html_files):
-            notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
-            notebook_name = notebook_name.replace("_", " ")
+            notebook_name = _extract_display_name(html_file, current_datetime)
             sub_tab_id = f"{topic_id}_sub{j}"
             is_sub_active = j == 0
 
             with open(html_file, 'r', encoding='utf-8') as f:
-                html_content = f.read()
+                html_content = _apply_rtl_processing(f.read())
 
             # Sub-tab navigation
             sub_tabs.append(
@@ -178,6 +246,32 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             height: auto;
             display: block;
         }
+
+        /* RTL Support for Hebrew and Arabic */
+        [dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+
+        [dir="rtl"] p,
+        [dir="rtl"] div,
+        [dir="rtl"] span {
+            text-align: right;
+            direction: rtl;
+        }
+
+        [dir="rtl"] code,
+        [dir="rtl"] pre {
+            direction: ltr;
+            text-align: left;
+            unicode-bidi: embed;
+        }
+
+        [dir="rtl"] .jp-RenderedText,
+        [dir="rtl"] .output_text {
+            text-align: right;
+            direction: rtl;
+        }
     </style>
     """
 
@@ -222,11 +316,8 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
 
 def _generate_single_html_template(html_file, report_title, current_datetime):
     """Generate HTML template for a single notebook."""
-    notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
-    notebook_name = notebook_name.replace("_", " ")
-
     with open(html_file, 'r', encoding='utf-8') as f:
-        html_content = f.read()
+        html_content = _apply_rtl_processing(f.read())
 
     custom_css = """
     <style>
@@ -256,6 +347,32 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
             max-width: 100%;
             height: auto;
             display: block;
+        }
+
+        /* RTL Support for Hebrew and Arabic */
+        [dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+
+        [dir="rtl"] p,
+        [dir="rtl"] div,
+        [dir="rtl"] span {
+            text-align: right;
+            direction: rtl;
+        }
+
+        [dir="rtl"] code,
+        [dir="rtl"] pre {
+            direction: ltr;
+            text-align: left;
+            unicode-bidi: embed;
+        }
+
+        [dir="rtl"] .jp-RenderedText,
+        [dir="rtl"] .output_text {
+            text-align: right;
+            direction: rtl;
         }
     </style>
     """
@@ -298,10 +415,9 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
     html_contents = []
 
     for i, html_file in enumerate(html_files):
-        notebook_name = os.path.splitext(os.path.basename(html_file))[0].split(current_datetime)[0]
-        notebook_name = notebook_name.replace("_", " ")
+        notebook_name = _extract_display_name(html_file, current_datetime)
         with open(html_file, 'r', encoding='utf-8') as f:
-            html_content = f.read()
+            html_content = _apply_rtl_processing(f.read())
 
         # Add HTML content to tab
         html_tabs.append(
@@ -359,6 +475,32 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
             max-width: 100%;
             height: auto;
             display: block;
+        }
+
+        /* RTL Support for Hebrew and Arabic */
+        [dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+
+        [dir="rtl"] p,
+        [dir="rtl"] div,
+        [dir="rtl"] span {
+            text-align: right;
+            direction: rtl;
+        }
+
+        [dir="rtl"] code,
+        [dir="rtl"] pre {
+            direction: ltr;
+            text-align: left;
+            unicode-bidi: embed;
+        }
+
+        [dir="rtl"] .jp-RenderedText,
+        [dir="rtl"] .output_text {
+            text-align: right;
+            direction: rtl;
         }
     </style>
     """
