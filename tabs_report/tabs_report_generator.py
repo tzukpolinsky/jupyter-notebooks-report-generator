@@ -35,35 +35,66 @@ def _has_rtl_content(text: str) -> bool:
 
 def _apply_rtl_processing(html_content: str) -> str:
     """
-    Apply RTL processing to HTML content by adding dir='rtl' to elements containing RTL text.
+    Apply RTL processing to HTML content by adding dir='rtl' only to text elements with RTL content.
+    This preserves layout structure while making RTL text readable.
     """
     # Only apply RTL processing if the content actually contains RTL characters
     if not _has_rtl_content(html_content):
         return html_content
     
-    # Target common Jupyter notebook content containers and add RTL direction
-    patterns_to_rtl = [
-        # Main cell containers
-        (r'<div class="cell border-box-sizing text_cell rendered"([^>]*)>', r'<div class="cell border-box-sizing text_cell rendered"\1 dir="rtl">'),
-        (r'<div class="cell border-box-sizing code_cell rendered"([^>]*)>', r'<div class="cell border-box-sizing code_cell rendered"\1 dir="rtl">'),
-        (r'<div class="inner_cell"([^>]*)>', r'<div class="inner_cell"\1 dir="rtl">'),
-        (r'<div class="text_cell_render border-box-sizing rendered_html"([^>]*)>', r'<div class="text_cell_render border-box-sizing rendered_html"\1 dir="rtl">'),
+    # Function to check if a specific text snippet contains RTL characters
+    def has_rtl_in_text(text):
+        rtl_pattern = r'[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]'
+        return bool(re.search(rtl_pattern, text))
+    
+    # Process only specific text elements that contain RTL text
+    def process_text_elements(match):
+        full_tag = match.group(0)
+        tag_content = match.group(2) if len(match.groups()) >= 2 else ""
         
-        # Text elements - only if they don't already have dir attribute
-        (r'<p(?![^>]*dir=)([^>]*)>', r'<p\1 dir="rtl">'),
-        (r'<h1(?![^>]*dir=)([^>]*)>', r'<h1\1 dir="rtl">'),
-        (r'<h2(?![^>]*dir=)([^>]*)>', r'<h2\1 dir="rtl">'),
-        (r'<h3(?![^>]*dir=)([^>]*)>', r'<h3\1 dir="rtl">'),
-        (r'<h4(?![^>]*dir=)([^>]*)>', r'<h4\1 dir="rtl">'),
-        (r'<h5(?![^>]*dir=)([^>]*)>', r'<h5\1 dir="rtl">'),
-        (r'<h6(?![^>]*dir=)([^>]*)>', r'<h6\1 dir="rtl">'),
-        (r'<li(?![^>]*dir=)([^>]*)>', r'<li\1 dir="rtl">'),
-        (r'<td(?![^>]*dir=)([^>]*)>', r'<td\1 dir="rtl">'),
-        (r'<th(?![^>]*dir=)([^>]*)>', r'<th\1 dir="rtl">'),
+        # Check if the content actually contains RTL text
+        if has_rtl_in_text(tag_content):
+            # Add dir="rtl" to the tag if it doesn't already have it
+            if 'dir=' not in match.group(1):
+                return match.group(1).replace('>', ' dir="rtl">') + tag_content + match.group(3)
+        
+        return full_tag
+    
+    # Process div elements more carefully - avoid structural containers
+    def process_div_elements(match):
+        full_tag = match.group(0)
+        tag_content = match.group(2) if len(match.groups()) >= 2 else ""
+        
+        # Skip structural divs (output containers, cells, etc.)
+        if any(cls in match.group(1) for cls in ['output', 'cell', 'jp-']):
+            return full_tag
+            
+        # Check if the content actually contains RTL text
+        if has_rtl_in_text(tag_content):
+            # Add dir="rtl" to the tag if it doesn't already have it
+            if 'dir=' not in match.group(1):
+                return match.group(1).replace('>', ' dir="rtl">') + tag_content + match.group(3)
+        
+        return full_tag
+    
+    # Target only text content elements, not structural containers
+    text_patterns = [
+        # Headings with their content
+        (r'(<h[1-6][^>]*>)(.*?)(</h[1-6]>)', process_text_elements),
+        # Paragraphs with their content  
+        (r'(<p[^>]*>)(.*?)(</p>)', process_text_elements),
+        # List items with their content
+        (r'(<li[^>]*>)(.*?)(</li>)', process_text_elements),
+        # Table cells with their content (but preserve table structure)
+        (r'(<td[^>]*>)(.*?)(</td>)', process_text_elements),
+        (r'(<th[^>]*>)(.*?)(</th>)', process_text_elements),
+        # Text-containing divs (but not structural ones)
+        (r'(<div[^>]*>)(.*?)(</div>)', process_div_elements),
     ]
     
-    for pattern, replacement in patterns_to_rtl:
-        html_content = re.sub(pattern, replacement, html_content)
+    # Apply RTL processing to text elements only
+    for pattern, processor in text_patterns:
+        html_content = re.sub(pattern, processor, html_content, flags=re.DOTALL)
     
     return html_content
 
@@ -247,19 +278,22 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             display: block;
         }
 
-        /* RTL Support for Hebrew and Arabic */
-        [dir="rtl"] {
+        /* RTL Support for Hebrew and Arabic - Text Only */
+        /* Apply RTL only to text elements, preserve layout structure */
+        h1[dir="rtl"], h2[dir="rtl"], h3[dir="rtl"], 
+        h4[dir="rtl"], h5[dir="rtl"], h6[dir="rtl"],
+        p[dir="rtl"], li[dir="rtl"] {
             direction: rtl;
             text-align: right;
         }
 
-        [dir="rtl"] p,
-        [dir="rtl"] div,
-        [dir="rtl"] span {
-            text-align: right;
+        /* Table cells with RTL content - keep table structure intact */
+        td[dir="rtl"], th[dir="rtl"] {
             direction: rtl;
+            text-align: right;
         }
 
+        /* Keep code and pre elements LTR even within RTL context */
         [dir="rtl"] code,
         [dir="rtl"] pre {
             direction: ltr;
@@ -267,10 +301,26 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
             unicode-bidi: embed;
         }
 
-        [dir="rtl"] .jp-RenderedText,
-        [dir="rtl"] .output_text {
-            text-align: right;
-            direction: rtl;
+        /* Ensure images and figures stay centered/positioned correctly - Higher specificity */
+        .cell[dir="rtl"] img,
+        .cell[dir="rtl"] figure,
+        .cell[dir="rtl"] .output_png,
+        .cell[dir="rtl"] .output_jpeg,
+        .output_wrapper[dir="rtl"] img,
+        .output_area[dir="rtl"] img,
+        div[dir="rtl"] img,
+        div[dir="rtl"] figure,
+        div[dir="rtl"] .output_png,
+        div[dir="rtl"] .output_jpeg {
+            direction: ltr !important;
+            text-align: center !important;
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        /* Keep table structure LTR even if cells have RTL text */
+        table {
+            direction: ltr;
         }
     </style>
     """
@@ -349,19 +399,22 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
             display: block;
         }
 
-        /* RTL Support for Hebrew and Arabic */
-        [dir="rtl"] {
+        /* RTL Support for Hebrew and Arabic - Text Only */
+        /* Apply RTL only to text elements, preserve layout structure */
+        h1[dir="rtl"], h2[dir="rtl"], h3[dir="rtl"], 
+        h4[dir="rtl"], h5[dir="rtl"], h6[dir="rtl"],
+        p[dir="rtl"], li[dir="rtl"] {
             direction: rtl;
             text-align: right;
         }
 
-        [dir="rtl"] p,
-        [dir="rtl"] div,
-        [dir="rtl"] span {
-            text-align: right;
+        /* Table cells with RTL content - keep table structure intact */
+        td[dir="rtl"], th[dir="rtl"] {
             direction: rtl;
+            text-align: right;
         }
 
+        /* Keep code and pre elements LTR even within RTL context */
         [dir="rtl"] code,
         [dir="rtl"] pre {
             direction: ltr;
@@ -369,10 +422,26 @@ def _generate_single_html_template(html_file, report_title, current_datetime):
             unicode-bidi: embed;
         }
 
-        [dir="rtl"] .jp-RenderedText,
-        [dir="rtl"] .output_text {
-            text-align: right;
-            direction: rtl;
+        /* Ensure images and figures stay centered/positioned correctly - Higher specificity */
+        .cell[dir="rtl"] img,
+        .cell[dir="rtl"] figure,
+        .cell[dir="rtl"] .output_png,
+        .cell[dir="rtl"] .output_jpeg,
+        .output_wrapper[dir="rtl"] img,
+        .output_area[dir="rtl"] img,
+        div[dir="rtl"] img,
+        div[dir="rtl"] figure,
+        div[dir="rtl"] .output_png,
+        div[dir="rtl"] .output_jpeg {
+            direction: ltr !important;
+            text-align: center !important;
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        /* Keep table structure LTR even if cells have RTL text */
+        table {
+            direction: ltr;
         }
     </style>
     """
@@ -477,19 +546,22 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
             display: block;
         }
 
-        /* RTL Support for Hebrew and Arabic */
-        [dir="rtl"] {
+        /* RTL Support for Hebrew and Arabic - Text Only */
+        /* Apply RTL only to text elements, preserve layout structure */
+        h1[dir="rtl"], h2[dir="rtl"], h3[dir="rtl"], 
+        h4[dir="rtl"], h5[dir="rtl"], h6[dir="rtl"],
+        p[dir="rtl"], li[dir="rtl"] {
             direction: rtl;
             text-align: right;
         }
 
-        [dir="rtl"] p,
-        [dir="rtl"] div,
-        [dir="rtl"] span {
-            text-align: right;
+        /* Table cells with RTL content - keep table structure intact */
+        td[dir="rtl"], th[dir="rtl"] {
             direction: rtl;
+            text-align: right;
         }
 
+        /* Keep code and pre elements LTR even within RTL context */
         [dir="rtl"] code,
         [dir="rtl"] pre {
             direction: ltr;
@@ -497,10 +569,26 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
             unicode-bidi: embed;
         }
 
-        [dir="rtl"] .jp-RenderedText,
-        [dir="rtl"] .output_text {
-            text-align: right;
-            direction: rtl;
+        /* Ensure images and figures stay centered/positioned correctly - Higher specificity */
+        .cell[dir="rtl"] img,
+        .cell[dir="rtl"] figure,
+        .cell[dir="rtl"] .output_png,
+        .cell[dir="rtl"] .output_jpeg,
+        .output_wrapper[dir="rtl"] img,
+        .output_area[dir="rtl"] img,
+        div[dir="rtl"] img,
+        div[dir="rtl"] figure,
+        div[dir="rtl"] .output_png,
+        div[dir="rtl"] .output_jpeg {
+            direction: ltr !important;
+            text-align: center !important;
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        /* Keep table structure LTR even if cells have RTL text */
+        table {
+            direction: ltr;
         }
     </style>
     """
@@ -669,5 +757,5 @@ def generate_report(config_path: str):
 
 # Run the script
 if __name__ == "__main__":
-    config_file_path = "config.json"  # Change this if necessary
+    config_file_path = os.path.join(os.getcwd(),os.path.join('tabs_report',"config.json"))  # Change this if necessary
     generate_report(config_file_path)
