@@ -1,0 +1,15 @@
+{
+  "notebook_files": [
+    "test_notebooks/data_analysis/sales_analysis.ipynb",
+    "test_notebooks/machine_learning/model_performance.ipynb",
+    "test_notebooks/visualization/dashboard.ipynb"
+  ],
+  "tabs_names": [
+    "Sales Report",
+    "ML Performance",
+    "Custom Dashboard"
+  ],
+  "output_folder": "./test_output/tabs_names_flat",
+  "report_title": "Flat Structure with Custom Tab Names",
+  "execute": false
+}

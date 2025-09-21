@@ -1,0 +1,15 @@
+{
+  "notebook_files": [
+    "test_notebooks/data_analysis/sales_analysis.ipynb",
+    "test_notebooks/machine_learning/model_performance.ipynb",
+    "test_notebooks/visualization/dashboard.ipynb",
+    "test_notebooks/statistics_report.ipynb"
+  ],
+  "tabs_names": [
+    "Sales Report",
+    "ML Performance"
+  ],
+  "output_folder": "./test_output/tabs_names_partial",
+  "report_title": "Partial Tab Names Test",
+  "execute": false
+}

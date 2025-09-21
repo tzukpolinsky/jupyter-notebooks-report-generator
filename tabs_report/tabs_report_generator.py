@@ -13,7 +13,23 @@ from misc.config_loader import load_config
 
 
 def _has_rtl_content(text: str) -> bool:
-    """Check if text contains any Hebrew or Arabic characters."""
+    """
+    Check if the given text contains any Right-to-Left (RTL) characters.
+
+    This function detects Hebrew and Arabic characters by checking against
+    their Unicode ranges. It's used to determine if RTL processing should
+    be applied to notebook content.
+
+    Args:
+        text (str): The text content to analyze for RTL characters.
+
+    Returns:
+        bool: True if the text contains Hebrew or Arabic characters, False otherwise.
+
+    Unicode Ranges:
+        - Hebrew: \\u0590-\\u05FF
+        - Arabic: \\u0600-\\u06FF, \\u0750-\\u077F, \\u08A0-\\u08FF
+    """
     # Hebrew Unicode range: \u0590-\u05FF
     # Arabic Unicode range: \u0600-\u06FF, \u0750-\u077F, \u08A0-\u08FF
     rtl_pattern = r'[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]'
@@ -22,8 +38,37 @@ def _has_rtl_content(text: str) -> bool:
 
 def _apply_rtl_processing(html_content: str) -> str:
     """
-    Apply RTL processing by wrapping RTL content in special paragraphs with unique class.
-    This approach gives precise control over RTL styling without affecting layout structure.
+    Apply Right-to-Left (RTL) text processing to HTML content from Jupyter notebooks.
+
+    This function identifies RTL text segments (Hebrew/Arabic) within HTML content
+    and wraps them in special paragraphs with RTL-specific CSS classes and
+    directional attributes. This ensures proper text rendering while preserving
+    the overall document layout.
+
+    The processing is selective - it only affects text content that actually
+    contains RTL characters, leaving LTR content, code blocks, images, and
+    structural elements unchanged.
+
+    Args:
+        html_content (str): Raw HTML content from converted Jupyter notebook.
+
+    Returns:
+        str: Processed HTML content with RTL text properly wrapped and styled.
+
+    Processing Steps:
+        1. Check if content contains any RTL characters
+        2. If no RTL content found, return original HTML unchanged
+        3. Identify RTL text segments within various HTML elements
+        4. Wrap RTL segments in <p class="rtl-text-content" dir="rtl"> tags
+        5. Preserve non-RTL elements (images, code, tables) in LTR format
+
+    Target Elements:
+        - Headings (h1-h6)
+        - Paragraphs (p)
+        - List items (li)
+        - Table cells (td, th)
+        - Pre-formatted text (pre)
+        - Text cell renders (div.text_cell_render)
     """
     # Only apply RTL processing if the content actually contains RTL characters
     if not _has_rtl_content(html_content):
@@ -91,7 +136,68 @@ def _apply_rtl_processing(html_content: str) -> str:
     return html_content
 
 
-def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_folder: str, postfix: str, execute: bool = False):
+def convert_notebooks_to_html(
+    notebook_files: Union[list[str], dict],
+    output_folder: str,
+    postfix: str,
+    execute: bool = False,
+    custom_names: Union[list[str], None] = None
+) -> list[dict]:
+    """
+    Convert Jupyter notebooks to HTML format using nbconvert.
+
+    This function processes a collection of Jupyter notebook files and converts
+    them to HTML format suitable for inclusion in tabbed reports. It handles
+    unique naming to avoid file collisions and supports optional execution
+    before conversion.
+
+    Args:
+        notebook_files (Union[list[str], dict]):
+            List of notebook file paths to convert. Can be a list of strings
+            or any iterable containing notebook paths.
+
+        output_folder (str):
+            Directory path where converted HTML files will be saved.
+            Directory will be created if it doesn't exist.
+
+        postfix (str):
+            String to append to output filenames for uniqueness.
+            Typically a timestamp or identifier.
+
+        execute (bool, optional):
+            Whether to execute notebook cells before conversion.
+            Defaults to False. If True, runs all cells and captures output.
+            Falls back to non-execution mode if execution fails.
+
+        custom_names (Union[list[str], None], optional):
+            List of custom display names for notebooks. If provided,
+            names are matched by index position. Missing indices use
+            default naming. Defaults to None.
+
+    Returns:
+        list[dict]: List of dictionaries containing conversion results.
+            Each dictionary has:
+            - 'output_name' (str): Full path to generated HTML file
+            - 'notebook_name' (str): Display name for the notebook
+
+    Raises:
+        subprocess.CalledProcessError: If nbconvert fails critically
+        FileNotFoundError: If notebook files don't exist
+        PermissionError: If output directory is not writable
+
+    File Naming:
+        - Generates unique filenames using directory structure
+        - Format: {dir_part}_{notebook_name}_{postfix}.html
+        - Handles path collisions by including parent directory names
+        - Replaces spaces and special characters for web compatibility
+
+    Execution Behavior:
+        - Uses jupyter nbconvert with --execute flag when enabled
+        - Applies 600-second timeout per cell
+        - Continues on cell errors with --allow-errors
+        - Falls back to non-execution if execution fails entirely
+        - Provides detailed error logging for troubleshooting
+    """
     os.makedirs(output_folder, exist_ok=True)
     converted_html_files = []
 
@@ -141,17 +247,75 @@ def convert_notebooks_to_html(notebook_files: Union[list[str], dict], output_fol
             # Continue with next notebook
             continue
 
+        # Use custom name if provided, otherwise use default
+        display_name = notebook_name
+        if custom_names and len(custom_names) > len(converted_html_files):
+            display_name = custom_names[len(converted_html_files)]
+
         # Return dict with both output_name (file path) and notebook_name (display name)
         converted_html_files.append({
             'output_name': html_output_path,
-            'notebook_name': notebook_name
+            'notebook_name': display_name
         })
 
     return converted_html_files
 
 
-def _generate_nested_html_template(html_files, report_title, current_datetime):
-    """Generate HTML template for nested tabs structure."""
+def _generate_nested_html_template(
+    html_files: dict,
+    report_title: str,
+    current_datetime: str,
+    tabs_names: Union[dict, None] = None
+) -> str:
+    """
+    Generate HTML template for nested tabs structure with hierarchical organization.
+
+    Creates a two-level tabbed interface where the main tabs represent topics/categories
+    and sub-tabs contain individual notebooks within each topic. This structure is
+    ideal for organizing related notebooks into logical groups.
+
+    Args:
+        html_files (dict):
+            Dictionary mapping topic names to lists of notebook info dictionaries.
+            Format: {topic_name: [{'output_name': str, 'notebook_name': str}, ...]}
+
+        report_title (str):
+            Title to display at the top of the report page.
+
+        current_datetime (str):
+            Timestamp string for report generation time display.
+
+        tabs_names (Union[dict, None], optional):
+            Custom naming configuration for topics and notebooks.
+            Supports two formats:
+            1. Simple: {topic_key: [notebook_names...]}
+            2. Advanced: {topic_key: {'topic_name': str, 'notebook_names': [str...]}}
+            Defaults to None (uses original names).
+
+    Returns:
+        str: Complete HTML document with nested tabs interface.
+
+    Template Structure:
+        - Bootstrap-based responsive design
+        - Main navigation tabs for topics (nav-tabs)
+        - Nested pill-style navigation for notebooks (nav-pills)
+        - RTL text support with specialized CSS classes
+        - Bokeh visualization library integration
+        - Image overflow prevention and responsive sizing
+
+    Custom Naming Logic:
+        - If tabs_names[topic] is dict with 'topic_name': uses custom topic name
+        - If tabs_names[topic] is string: uses as topic name
+        - If tabs_names[topic] is list: keeps original topic, customizes notebook names
+        - Falls back to original names for missing configurations
+
+    CSS Features:
+        - Responsive container with shadow and rounded corners
+        - Color-coded active/inactive states for tabs
+        - RTL text rendering with proper direction and alignment
+        - Image centering and size constraints
+        - Table structure preservation in mixed-direction content
+    """
     main_tabs = []
     main_contents = []
 
@@ -159,12 +323,22 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
         topic_id = f"topic{i}"
         is_active = i == 0
 
+        # Use custom topic name if provided
+        display_topic_name = topic_name
+        if tabs_names and topic_name in tabs_names:
+            topic_config = tabs_names[topic_name]
+            if isinstance(topic_config, dict) and 'topic_name' in topic_config:
+                display_topic_name = topic_config['topic_name']
+            elif isinstance(topic_config, str):
+                display_topic_name = topic_config
+            # If topic_config is a list, keep the original topic name (list is for notebook names only)
+
         # Create main tab
         main_tabs.append(
             f'<li class="nav-item"><a class="nav-link {"active" if is_active else ""}" '
             f'id="{topic_id}-tab" data-bs-toggle="tab" href="#{topic_id}" role="tab" '
             f'aria-controls="{topic_id}" aria-selected="{"true" if is_active else "false"}">'
-            f'{topic_name}</a></li>'
+            f'{display_topic_name}</a></li>'
         )
 
         # Generate sub-tabs for notebooks within this topic
@@ -347,8 +521,53 @@ def _generate_nested_html_template(html_files, report_title, current_datetime):
     """
 
 
-def _generate_single_html_template(html_file_info, report_title, current_datetime):
-    """Generate HTML template for a single notebook."""
+def _generate_single_html_template(
+    html_file_info: dict,
+    report_title: str,
+    current_datetime: str
+) -> str:
+    """
+    Generate HTML template for a single notebook without tabs interface.
+
+    Creates a clean, single-page report containing one notebook's content.
+    This template maintains the same visual styling and features as the
+    tabbed versions but without navigation complexity.
+
+    Args:
+        html_file_info (dict):
+            Dictionary containing notebook information:
+            - 'output_name' (str): Path to the converted HTML file
+            - 'notebook_name' (str): Display name for the notebook
+
+        report_title (str):
+            Title to display at the top of the report page.
+            Used as the main heading since there are no tabs.
+
+        current_datetime (str):
+            Timestamp string showing when the report was generated.
+
+    Returns:
+        str: Complete HTML document containing the single notebook.
+
+    Template Features:
+        - Clean, centered layout with Bootstrap styling
+        - Same RTL text support as multi-notebook reports
+        - Responsive image handling and overflow prevention
+        - Bokeh visualization library integration
+        - Professional styling with shadows and rounded corners
+
+    Use Cases:
+        - Single analysis reports
+        - Standalone notebook presentations
+        - Simple document conversion without categorization
+        - Quick notebook sharing with consistent styling
+
+    Styling Consistency:
+        - Matches visual design of tabbed reports
+        - Same CSS classes and responsive behavior
+        - Identical RTL text processing capabilities
+        - Compatible with all notebook output types
+    """
     # html_file_info is now a dict with 'output_name' and 'notebook_name'
     html_file = html_file_info['output_name']
     with open(html_file, 'r', encoding='utf-8') as f:
@@ -448,8 +667,64 @@ def _generate_single_html_template(html_file_info, report_title, current_datetim
     """
 
 
-def _generate_flat_html_template(html_files, report_title, current_datetime):
-    """Generate HTML template for flat tabs structure."""
+def _generate_flat_html_template(
+    html_files: list[dict],
+    report_title: str,
+    current_datetime: str
+) -> str:
+    """
+    Generate HTML template for flat tabs structure with single-level navigation.
+
+    Creates a simple tabbed interface where all notebooks are at the same
+    hierarchical level. This structure is ideal for collections of related
+    but independent analyses that don't require categorization.
+
+    Args:
+        html_files (list[dict]):
+            List of notebook information dictionaries.
+            Each dictionary contains:
+            - 'output_name' (str): Path to the converted HTML file
+            - 'notebook_name' (str): Display name for the notebook tab
+
+        report_title (str):
+            Title to display at the top of the report page.
+
+        current_datetime (str):
+            Timestamp string for report generation time display.
+
+    Returns:
+        str: Complete HTML document with flat tabs interface.
+
+    Template Structure:
+        - Bootstrap nav-tabs for horizontal tab navigation
+        - Tab content areas with fade transitions
+        - First tab active by default
+        - Responsive design with justified tab layout
+
+    Navigation Behavior:
+        - Tabs use Bootstrap JavaScript for switching
+        - Smooth fade transitions between notebooks
+        - Keyboard navigation support
+        - ARIA labels for accessibility
+
+    Styling Features:
+        - Pill-style navigation with hover effects
+        - Active tab highlighting with brand colors
+        - Content area with border and padding
+        - RTL text support with specialized CSS
+        - Image overflow prevention and responsive sizing
+
+    Use Cases:
+        - Multiple related analyses
+        - Comparative studies
+        - Sequential workflow documentation
+        - Dashboard-style multi-notebook reports
+
+    Tab Naming:
+        - Uses 'notebook_name' from html_files entries
+        - Names can be customized via tabs_names in parent functions
+        - Falls back to filename-based naming if not specified
+    """
     html_tabs = []
     html_contents = []
 
@@ -586,12 +861,70 @@ def _generate_flat_html_template(html_files, report_title, current_datetime):
 
 
 # Generate final HTML report - now handles both flat and nested structures
-def generate_final_report(html_files, report_title, output_folder, current_datetime: str):
-    """Enhanced to support both flat list, nested dict structures, and single file."""
+def generate_final_report(
+    html_files: Union[dict, list, dict],
+    report_title: str,
+    output_folder: str,
+    current_datetime: str,
+    tabs_names: Union[dict, list, None] = None
+) -> None:
+    """
+    Generate the final HTML report by selecting appropriate template and writing output.
+
+    This function serves as a dispatcher that analyzes the structure of the provided
+    HTML files and generates the appropriate report template (single, flat, or nested).
+    It handles the final file writing and provides user feedback.
+
+    Args:
+        html_files (Union[dict, list]):
+            Notebook data in various formats:
+            - dict with 'output_name'/'notebook_name': Single notebook
+            - list of dicts: Flat structure (simple tabs)
+            - dict of lists: Nested structure (categorized tabs)
+
+        report_title (str):
+            Title for the report, used in HTML title and header.
+            Spaces are replaced with underscores for filename.
+
+        output_folder (str):
+            Directory where the final report HTML file will be saved.
+            Must be writable and will be created if needed.
+
+        current_datetime (str):
+            Timestamp string for filename uniqueness and display.
+            Format typically: YYYY_MM_DD_HH_MM_SS
+
+        tabs_names (Union[dict, list, None], optional):
+            Custom naming configuration passed to template generators.
+            Format depends on report structure. Defaults to None.
+
+    Returns:
+        None: Function writes file and prints confirmation message.
+
+    Report Structure Detection:
+        1. Single notebook: dict with 'output_name' and 'notebook_name' keys
+        2. Nested structure: dict without those specific keys (topic -> notebooks)
+        3. Flat structure: list of notebook dictionaries
+
+    File Naming:
+        - Format: {report_title}_{current_datetime}.html
+        - Spaces in title replaced with underscores
+        - Saved in specified output_folder
+
+    Template Selection:
+        - Single: _generate_single_html_template()
+        - Nested: _generate_nested_html_template() with tabs_names
+        - Flat: _generate_flat_html_template()
+
+    Output:
+        - Writes complete HTML file to disk
+        - Prints confirmation with full file path
+        - File ready for browser viewing or web deployment
+    """
 
     if isinstance(html_files, dict) and not ('output_name' in html_files and 'notebook_name' in html_files):
         # This is a nested structure (dict of topics -> lists of html files)
-        template_str = _generate_nested_html_template(html_files, report_title, current_datetime)
+        template_str = _generate_nested_html_template(html_files, report_title, current_datetime, tabs_names)
     elif isinstance(html_files, dict) and 'output_name' in html_files and 'notebook_name' in html_files:
         # This is a single notebook dict
         template_str = _generate_single_html_template(html_files, report_title, current_datetime)
@@ -609,14 +942,59 @@ def generate_final_report(html_files, report_title, output_folder, current_datet
     print(f"Report saved to: {report_path}")
 
 
-def _discover_notebooks_from_directory(notebook_dir: str):
+def _discover_notebooks_from_directory(notebook_dir: str) -> Union[dict, list]:
     """
-    Discover notebooks from directory structure and create nested dict.
-    Only supports one level of subdirectories.
+    Automatically discover Jupyter notebooks from directory structure.
+
+    Scans the specified directory and its immediate subdirectories to find
+    .ipynb files, organizing them into an appropriate structure based on
+    the directory layout. Supports both flat and nested organization.
+
+    Args:
+        notebook_dir (str):
+            Path to directory containing notebooks and/or subdirectories.
+            Must exist and be readable.
 
     Returns:
-        dict: {subdirectory_name: [list_of_notebook_paths]} or
-              list: [notebook_paths] if no subdirectories found
+        Union[dict, list]:
+            - dict: Nested structure if subdirectories found
+                   Format: {subdirectory_name: [notebook_paths...]}
+                   Includes "Main" category for root-level notebooks
+            - list: Flat list if no subdirectories with notebooks
+                   Format: [notebook_path1, notebook_path2, ...]
+            - []: Empty list if no notebooks found
+
+    Directory Scanning Logic:
+        1. Check if target directory exists
+        2. Find all .ipynb files in root directory
+        3. Identify subdirectories (excluding hidden dirs starting with '.')
+        4. Scan each subdirectory for .ipynb files
+        5. Build nested structure if subdirectories contain notebooks
+        6. Return flat structure if only root notebooks found
+
+    Nested Structure Rules:
+        - Each subdirectory becomes a topic/category
+        - Subdirectory names are cleaned: underscores→spaces, title case
+        - Root notebooks grouped under "Main" category
+        - Only processes one level of subdirectories (not recursive)
+        - Ignores empty subdirectories
+
+    Topic Name Processing:
+        - 'data_analysis' → 'Data Analysis'
+        - 'machine-learning' → 'Machine-Learning' → 'Machine Learning'
+        - 'results' → 'Results'
+
+    Error Handling:
+        - Returns empty list if directory doesn't exist
+        - Skips unreadable files or directories
+        - Prints informative messages about discovery progress
+        - Gracefully handles permission errors
+
+    Use Cases:
+        - Quick report generation from existing notebook collections
+        - Automatic organization of analysis workflows
+        - Discovery mode for unknown directory structures
+        - Batch processing of notebook repositories
     """
     if not os.path.exists(notebook_dir):
         print(f"Directory does not exist: {notebook_dir}")
@@ -665,9 +1043,90 @@ def _discover_notebooks_from_directory(notebook_dir: str):
 
     return nested_structure
 # Main function
-def generate_report(config_path: str):
+def generate_report(config_path: str) -> None:
+    """
+    Main entry point for generating Jupyter notebook reports from configuration.
+
+    This function orchestrates the entire report generation process by loading
+    configuration, processing notebooks, and creating the final HTML report.
+    It supports multiple notebook organization patterns and provides comprehensive
+    error handling and user feedback.
+
+    Args:
+        config_path (str):
+            Path to JSON configuration file containing report settings.
+            Must be readable and contain valid JSON.
+
+    Returns:
+        None: Generates HTML report file and prints status messages.
+
+    Configuration Structure:
+        Required fields:
+        - 'notebook_files': Notebooks to process (see formats below)
+        - 'output_folder': Where to save generated files
+        - 'report_title': Title for the report
+
+        Optional fields:
+        - 'execute': Whether to run notebooks before conversion (default: False)
+        - 'tabs_names': Custom tab naming (see Custom Naming section)
+        - 'notebook_dir': Directory for auto-discovery when notebook_files empty
+
+    Notebook File Formats:
+        1. Single notebook: "path/to/notebook.ipynb"
+        2. Flat list: ["notebook1.ipynb", "notebook2.ipynb"]
+        3. Nested dict: {"Topic1": ["nb1.ipynb"], "Topic2": ["nb2.ipynb"]}
+        4. Auto-discovery: [] (empty, uses notebook_dir)
+
+    Custom Naming (tabs_names):
+        - Flat structure: ["Custom Name 1", "Custom Name 2"]
+        - Nested simple: {"Topic": ["Custom Name"]}
+        - Nested advanced: {"Topic": {"topic_name": "Custom", "notebook_names": [...]}}
+
+    Processing Workflow:
+        1. Load and validate configuration file
+        2. Extract notebook files and settings
+        3. Handle auto-discovery if notebook_files empty
+        4. Convert notebooks to HTML with optional execution
+        5. Apply custom naming if provided
+        6. Generate appropriate report template
+        7. Write final HTML report to output folder
+
+    Execution Mode:
+        - When execute=True: Runs all notebook cells before conversion
+        - Handles execution errors gracefully with fallback
+        - Provides detailed error messages for troubleshooting
+        - Continues processing even if some notebooks fail
+
+    Output Files:
+        - Individual HTML files for each notebook in output_folder
+        - Final combined report: {report_title}_{timestamp}.html
+        - All files use UTF-8 encoding for international character support
+
+    Error Handling:
+        - Missing configuration files
+        - Invalid JSON format
+        - Notebook file access errors
+        - Directory permission issues
+        - Notebook execution failures
+
+    Status Reporting:
+        - Progress messages for each processing stage
+        - Notebook-by-notebook conversion status
+        - Final report location confirmation
+        - Error details when problems occur
+
+    Examples:
+        >>> generate_report("config.json")
+        Converting notebooks to HTML...
+        Processing topic: Data Analysis
+        Converting notebook: analysis.ipynb
+        Generating nested tabs HTML report...
+        Report saved to: ./output/Report_2023_12_01_10_30_15.html
+        Done!
+    """
     config = load_config(config_path)
     notebook_files = config.get("notebook_files", [])
+    tabs_names = config.get("tabs_names", None)
     current_datetime = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
     if not notebook_files:
@@ -692,14 +1151,22 @@ def generate_report(config_path: str):
 
         for topic_name, topic_notebooks in notebook_files.items():
             print(f"Processing topic: {topic_name}")
-            html_files = convert_notebooks_to_html(topic_notebooks, output_folder, current_datetime, execute)
+            # Get custom names for this topic if provided
+            topic_custom_names = None
+            if tabs_names and isinstance(tabs_names, dict) and topic_name in tabs_names:
+                topic_config = tabs_names[topic_name]
+                if isinstance(topic_config, dict) and 'notebook_names' in topic_config:
+                    topic_custom_names = topic_config['notebook_names']
+                elif isinstance(topic_config, list):
+                    topic_custom_names = topic_config
+            html_files = convert_notebooks_to_html(topic_notebooks, output_folder, current_datetime, execute, topic_custom_names)
             html_files_dict[topic_name] = html_files
 
         print("Generating nested tabs HTML report...")
-        generate_final_report(html_files_dict, report_title, output_folder, current_datetime)
+        generate_final_report(html_files_dict, report_title, output_folder, current_datetime, tabs_names)
 
     elif isinstance(notebook_files, str):
-        # Single notebook
+        # Single notebook - tabs_names has no effect
         print(f"Processing single notebook: {notebook_files}")
         html_files = convert_notebooks_to_html([notebook_files], output_folder, current_datetime, execute)
         if html_files:
@@ -707,8 +1174,11 @@ def generate_report(config_path: str):
             generate_final_report(html_files[0], report_title, output_folder, current_datetime)
 
     else:
-        # Flat structure - maintain backward compatibility
-        html_files = convert_notebooks_to_html(notebook_files, output_folder, current_datetime, execute)
+        # Flat structure - tabs_names should be a list matching notebook files by index
+        custom_names = None
+        if tabs_names and isinstance(tabs_names, list):
+            custom_names = tabs_names
+        html_files = convert_notebooks_to_html(notebook_files, output_folder, current_datetime, execute, custom_names)
         print("Generating flat tabs HTML report...")
         generate_final_report(html_files, report_title, output_folder, current_datetime)
 
@@ -717,5 +1187,5 @@ def generate_report(config_path: str):
 
 # Run the script
 if __name__ == "__main__":
-    config_file_path = os.path.join(os.getcwd(),os.path.join('test_configs',"auto_nested_config.json"))  # Change this if necessary
+    config_file_path = os.path.join(os.getcwd(),os.path.join('test_configs',"test_tabs_names_flat.json"))  # Change this if necessary
     generate_report(config_file_path)
